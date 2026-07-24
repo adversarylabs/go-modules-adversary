@@ -1,0 +1,1 @@
+{"risk":"high","findings":[{"ruleId":"go-modules.local-replace","severity":"high","evidenceCount":1},{"ruleId":"go-modules.branch-replace","severity":"medium","evidenceCount":1},{"ruleId":"go-modules.exclude","severity":"medium","evidenceCount":1}],"positiveKeys":[],"ship":false}
