@@ -1,5 +1,5 @@
 name: go-modules
-version: 0.0.1
+version: 0.0.2
 description: Reviews Go module metadata for reproducibility, upgrade safety, and maintainable dependency ownership.
 
 triggers:
@@ -36,6 +36,7 @@ permissions:
       - .
     write: []
   network: false
+  model: true
   environment:
     allow: []
 

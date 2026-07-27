@@ -11,6 +11,7 @@ export const domain: DomainDefinition = {
     {
       id: "go-modules.local-replace",
       title: "A local replacement makes the module unreproducible",
+      concern: "unreproducible module replacements",
       category: "dependencies",
       severity: "high",
       confidence: "high",
@@ -22,6 +23,7 @@ export const domain: DomainDefinition = {
     {
       id: "go-modules.branch-replace",
       title: "A replacement tracks mutable dependency state",
+      concern: "mutable branch replacements",
       category: "dependencies",
       severity: "medium",
       confidence: "high",
@@ -33,6 +35,7 @@ export const domain: DomainDefinition = {
     {
       id: "go-modules.exclude",
       title: "An excluded module version hides a compatibility constraint",
+      concern: "module exclude directives",
       category: "dependencies",
       severity: "medium",
       confidence: "medium",
