@@ -1,4 +1,4 @@
-name: go-modules
+name: go/modules
 version: 0.0.5
 description: Reviews Go module metadata for reproducibility, upgrade safety, and maintainable dependency ownership.
 
