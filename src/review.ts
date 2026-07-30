@@ -4,7 +4,7 @@ import { runModelModulesReview, type DiscoveryFile } from "./model-review.js";
 import { type Analysis, type RuleDefinition, type Signal } from "./types.js";
 
 const RISK_ORDER = { none: 0, low: 1, medium: 2, high: 3, critical: 4 } as const;
-const MAX_FINDINGS = 4;
+const MAX_FINDINGS = 5;
 
 export async function reviewDomain(
   ctx: RuleContext,

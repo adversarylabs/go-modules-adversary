@@ -9,9 +9,16 @@ triggers:
     - "go.sum"
     - "go.work"
     - "go.work.sum"
+    - "go.env"
     - "**/go.mod"
     - "**/go.sum"
+    - "**/go.env"
     - "vendor/modules.txt"
+    - ".env"
+    - ".env.*"
+    - "Makefile"
+    - "**/Makefile"
+    - "**/*.{yml,yaml,sh}"
 
 detection:
   files:
@@ -19,9 +26,16 @@ detection:
     - "go.sum"
     - "go.work"
     - "go.work.sum"
+    - "go.env"
     - "**/go.mod"
     - "**/go.sum"
+    - "**/go.env"
     - "vendor/modules.txt"
+    - ".env"
+    - ".env.*"
+    - "Makefile"
+    - "**/Makefile"
+    - "**/*.{yml,yaml,sh}"
 
 runtime:
   name: node
