@@ -1,21 +1,43 @@
-# Go Modules adversary
+# go/modules
 
-Go Modules reviews dependency metadata for reproducibility, upgrade safety, and maintainable ownership.
+**go/modules** reviews Go module metadata for **reproducibility, upgrade safety, and supply-chain integrity**: replacements, excludes, go.sum, checksum database configuration, and known-vulnerable pins.
 
-The initial review covers local replacements, mutable branch replacements, and exclusions that preserve undocumented compatibility constraints.
+It is a **module graph reviewer**, not a general dependency updater. It prefers silence when the graph is immutable and verifiable.
 
-## Fixtures and calibration
+## What it does
 
-Five graded module fixtures own expected review snapshots. The 61-repository corpus calibrates module graph and reproducibility decisions.
+1. **Discovers** `go.mod` / `go.sum` / `go.work` / `go.env`, plus related Makefile/CI/env files that disable checksum verification.
+2. **Runs deterministic detectors** over module directives and offline vuln pins.
+3. **Synthesizes a review** of graph integrity.
+4. Optionally **enhances** with a model when provided.
 
-## Automatic detection
+It never executes the scanned project as the product under review, never installs dependencies into it, and never needs network access to the target repository.
 
-`adversary auto` selects Go Modules when `go.mod`, `go.sum`, `go.work`, workspace sums, or vendor module metadata changes.
+## What it detects
 
-## Development
+Every **shipped rule id**, severity, and short description lives in **[CHECKS.md](CHECKS.md)** — the audit surface for “what does this adversary look for?”
 
-Run `npm test`, `adversary validate .`, and `adversary pack --check .`.
+Highlights:
 
-## Issue catalog
+| Area | Examples |
+| --- | --- |
+| Reproducibility | Local `replace`; branch-like mutable replacements |
+| Integrity | Missing `go.sum`; `GOSUMDB=off` / broad `GONOSUMDB` |
+| Compatibility | Undocumented `exclude` directives |
+| Vulnerabilities | Required versions in the offline known-vuln table |
 
-What this adversary targets (P0 / P1 / LLM-only priorities, detection notes, and public pattern references) is documented in [docs/issue-catalog.md](docs/issue-catalog.md).
+### Ownership boundaries
+
+Other official adversaries own adjacent classes so findings stay non-duplicative:
+
+| Concern | Owned by |
+| --- | --- |
+| Language-level security in application Go code | [`go/security`](https://github.com/adversarylabs/go-security-adversary) |
+| Committed cloud/provider secrets in any file | [`security/secrets`](https://github.com/adversarylabs/secrets-adversary) |
+| CI supply-chain pin of actions | [`ci/github-actions`](https://github.com/adversarylabs/githubactions-adversary) |
+
+## Precision stance
+
+- **High confidence** only for deterministic, evidence-backed patterns.
+- Clean fixtures must stay quiet; vulnerable fixtures must fire where graded fixtures exist.
+- Prefer missing a weak signal over a false positive on normal production code.
