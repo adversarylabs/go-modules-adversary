@@ -246,12 +246,24 @@ export function sameModuleReplaceSignals(file: SourceRevision): Signal[] {
     if (replacement.oldModule !== replacement.newModule) continue;
     if (replacement.newVersion === undefined || !isVersionedRequire(replacement.newModule, replacement.newVersion)) continue;
 
+    // A normal upgrade commonly changes only the require line while leaving
+    // the unconditional replacement in place. Anchor to whichever half of the
+    // pair changed so diff-mode filtering retains the originating concern,
+    // without reporting a pre-existing pair on unrelated go.mod edits.
+    let line = replacement.line;
+    let snippet = replacement.snippet;
+    if (file.status === "modified" && !file.changedLines.has(replacement.line)) {
+      if (!file.changedLines.has(requirement.line)) continue;
+      line = requirement.line;
+      snippet = requirement.snippet;
+    }
+
     signals.push({
       ruleId: "go-modules.same-module-replace",
       path: file.path,
-      line: replacement.line,
+      line,
       message: `${replacement.oldModule} is required at ${requirement.version}, but this unversioned replacement forces every selected version to ${replacement.newVersion}.`,
-      snippet: replacement.snippet,
+      snippet,
       data: {
         module: replacement.oldModule,
         requiredVersion: requirement.version,

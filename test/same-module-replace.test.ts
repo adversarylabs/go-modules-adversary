@@ -3,12 +3,16 @@ import test from "node:test";
 import { sameModuleReplaceSignals } from "../src/domain.ts";
 import { type SourceRevision } from "../src/types.ts";
 
-function analyze(current: string) {
+function analyze(
+  current: string,
+  status: SourceRevision["status"] = "repository",
+  changedLines = new Set<number>(),
+) {
   const source: SourceRevision = {
     path: "go.mod",
     current,
-    changedLines: new Set(),
-    status: "repository",
+    changedLines,
+    status,
   };
   return sameModuleReplaceSignals(source);
 }
@@ -61,4 +65,31 @@ test("stays quiet for replacements with different scope or intent", () => {
   for (const source of cleanCases) {
     assert.deepEqual(analyze(source), []);
   }
+});
+
+test("detects a changed require whose existing replacement still overrides it", () => {
+  const source = `module example.com/service
+
+require example.com/dependency v1.1.1-0.20260720132747-49ac08dcf160
+
+replace example.com/dependency => example.com/dependency v1.1.0-0.20260625135320-7a214f294075
+`;
+
+  const signals = analyze(source, "modified", new Set([3]));
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0]?.line, 3);
+  assert.match(signals[0]?.snippet ?? "", /^require /);
+});
+
+test("stays quiet when an unrelated go.mod line changes around an existing pair", () => {
+  const source = `module example.com/service
+
+go 1.26
+
+require example.com/dependency v1.0.0
+
+replace example.com/dependency => example.com/dependency v1.0.1
+`;
+
+  assert.deepEqual(analyze(source, "modified", new Set([3])), []);
 });

@@ -17296,12 +17296,19 @@ function sameModuleReplaceSignals(file) {
     if (replacement.oldVersion !== void 0) continue;
     if (replacement.oldModule !== replacement.newModule) continue;
     if (replacement.newVersion === void 0 || !isVersionedRequire(replacement.newModule, replacement.newVersion)) continue;
+    let line = replacement.line;
+    let snippet = replacement.snippet;
+    if (file.status === "modified" && !file.changedLines.has(replacement.line)) {
+      if (!file.changedLines.has(requirement.line)) continue;
+      line = requirement.line;
+      snippet = requirement.snippet;
+    }
     signals.push({
       ruleId: "go-modules.same-module-replace",
       path: file.path,
-      line: replacement.line,
+      line,
       message: `${replacement.oldModule} is required at ${requirement.version}, but this unversioned replacement forces every selected version to ${replacement.newVersion}.`,
-      snippet: replacement.snippet,
+      snippet,
       data: {
         module: replacement.oldModule,
         requiredVersion: requirement.version,
