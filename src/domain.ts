@@ -43,6 +43,19 @@ export const domain: DomainDefinition = {
       recommendation: "Resolve and commit a tagged version or Go pseudo-version with its checksum.",
     },
     {
+      id: "go-modules.same-module-replace",
+      title: "An unversioned replacement pins every version of a module",
+      concern: "unconditional same-module replacements",
+      category: "dependencies",
+      severity: "medium",
+      confidence: "high",
+      summary: (count) =>
+        `${count} same-module replacement${count === 1 ? "" : "s"} override every selected version of a required module.`,
+      whyItMatters: "An unversioned replace directive applies to every selected version of its module, including later direct and transitive upgrades.",
+      impact: "The dependency graph can remain pinned to the replacement target even after another requirement selects a newer version.",
+      recommendation: "For an ordinary upgrade, remove the replacement and require the target version directly; otherwise document why the global override is intentional and when it can be removed.",
+    },
+    {
       id: "go-modules.exclude",
       title: "An excluded module version hides a compatibility constraint",
       concern: "module exclude directives",
@@ -103,6 +116,7 @@ export const domain: DomainDefinition = {
       signals: [
         ...lineSignals(file, "go-modules.local-replace", /^\s*replace\b.*=>\s*(?:\.\.?\/|\/)/, () => "This replacement resolves through a local filesystem path."),
         ...lineSignals(file, "go-modules.branch-replace", /^\s*replace\b.*=>\s*\S+\s+(?:main|master|latest|HEAD)\s*$/, () => "This replacement names mutable dependency state."),
+        ...sameModuleReplaceSignals(file),
         ...lineSignals(file, "go-modules.exclude", /^\s*exclude\s+\S+\s+\S+/, () => "This module version is excluded without a machine-readable removal condition."),
         ...cveKnownSignals(file),
         ...checksumDatabaseOffSignals(file),
@@ -207,6 +221,91 @@ function isVersionedRequire(module: string, version: string): boolean {
   if (module === "" || version === "") return false;
   // go.mod versions start with "v" or are "none" in exclude-like forms; require uses semver tags.
   return /^v\d/.test(version) || /^\d+\.\d+/.test(version);
+}
+
+interface ReplacementLine {
+  oldModule: string;
+  oldVersion: string | undefined;
+  newModule: string;
+  newVersion: string | undefined;
+  line: number;
+  snippet: string;
+}
+
+/** Same-module, unversioned replacements that globally override a direct requirement. */
+export function sameModuleReplaceSignals(file: SourceRevision): Signal[] {
+  if (!/(^|\/)go\.mod$/.test(file.path)) return [];
+
+  const requirements = new Map(versionedRequires(file.current).map((requirement) => [requirement.module, requirement]));
+  const signals: Signal[] = [];
+
+  for (const replacement of replacementLines(file.current)) {
+    const requirement = requirements.get(replacement.oldModule);
+    if (requirement === undefined) continue;
+    if (replacement.oldVersion !== undefined) continue;
+    if (replacement.oldModule !== replacement.newModule) continue;
+    if (replacement.newVersion === undefined || !isVersionedRequire(replacement.newModule, replacement.newVersion)) continue;
+
+    signals.push({
+      ruleId: "go-modules.same-module-replace",
+      path: file.path,
+      line: replacement.line,
+      message: `${replacement.oldModule} is required at ${requirement.version}, but this unversioned replacement forces every selected version to ${replacement.newVersion}.`,
+      snippet: replacement.snippet,
+      data: {
+        module: replacement.oldModule,
+        requiredVersion: requirement.version,
+        replacementVersion: replacement.newVersion,
+        scope: "all-versions",
+      },
+    });
+  }
+
+  return signals;
+}
+
+function replacementLines(source: string): ReplacementLine[] {
+  const results: ReplacementLine[] = [];
+  let inReplaceBlock = false;
+
+  source.split("\n").forEach((raw, index) => {
+    const line = raw.trim();
+    if (/^replace\s*\(\s*$/.test(line)) {
+      inReplaceBlock = true;
+      return;
+    }
+    if (inReplaceBlock && line === ")") {
+      inReplaceBlock = false;
+      return;
+    }
+
+    const directive = inReplaceBlock ? line : line.replace(/^replace\s+/, "");
+    if (!inReplaceBlock && directive === line) return;
+    const parsed = parseReplacementLine(directive);
+    if (parsed !== undefined) {
+      results.push({ ...parsed, line: index + 1, snippet: raw.trim().slice(0, 300) });
+    }
+  });
+
+  return results;
+}
+
+function parseReplacementLine(line: string): Omit<ReplacementLine, "line" | "snippet"> | undefined {
+  const withoutComment = line.replace(/\s*\/\/.*$/, "").trim();
+  if (withoutComment === "" || withoutComment.startsWith("//")) return undefined;
+
+  const sides = withoutComment.split(/\s+=>\s+/);
+  if (sides.length !== 2) return undefined;
+  const oldFields = sides[0]!.trim().split(/\s+/);
+  const newFields = sides[1]!.trim().split(/\s+/);
+  if (oldFields.length < 1 || oldFields.length > 2 || newFields.length < 1 || newFields.length > 2) return undefined;
+
+  return {
+    oldModule: oldFields[0]!,
+    oldVersion: oldFields[1],
+    newModule: newFields[0]!,
+    newVersion: newFields[1],
+  };
 }
 
 function cveKnownSignals(file: SourceRevision): Signal[] {

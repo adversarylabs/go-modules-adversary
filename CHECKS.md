@@ -66,6 +66,16 @@ Regression entry: graded module fixtures under `test/`.
 | **Stays quiet when** | Tagged version or pseudo-version + sum |
 | **Remediation** | Pin immutable revisions |
 
+### `go-modules.same-module-replace`
+
+| | |
+| --- | --- |
+| **What** | Unversioned same-module replacement overrides a required module |
+| **Why** | The replacement applies to every selected version, including later upgrades |
+| **Looks for** | `require M vCurrent` with `replace M => M vTarget` |
+| **Stays quiet when** | Local replacements, forks, version-specific replacements, or no matching require |
+| **Remediation** | Require the target version directly, or document the deliberate global override |
+
 ### `go-modules.exclude`
 
 | | |
