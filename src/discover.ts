@@ -12,8 +12,8 @@ const execute = promisify(execFile);
  * Load Go sources for the runner's review scope.
  *
  * Scope ownership lives in the CLI/SDK (`change.changedFiles` includes untracked
- * worktree paths; `--all-files` walks the target). Git is used only for an
- * already-scoped changed go.mod to distinguish additions and recover its exact
+ * worktree paths; `--all-files` walks the target). Git is used for every
+ * already-scoped changed source to distinguish additions and recover its exact
  * changed lines.
  */
 export async function discoverSources(ctx: RuleContext): Promise<Discovery> {
@@ -36,9 +36,7 @@ export async function discoverSources(ctx: RuleContext): Promise<Discovery> {
       continue;
     }
 
-    const change = /(^|\/)go\.mod$/.test(source.path)
-      ? await changedGoMod(ctx, source.path)
-      : { changedLines: new Set<number>(), status: "added" as const };
+    const change = await changedSource(ctx, source.path);
     files.push({
       path: source.path,
       current: source.content,
@@ -54,7 +52,7 @@ export async function discoverSources(ctx: RuleContext): Promise<Discovery> {
   };
 }
 
-async function changedGoMod(
+async function changedSource(
   ctx: RuleContext,
   path: string,
 ): Promise<Pick<SourceRevision, "changedLines" | "status">> {

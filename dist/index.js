@@ -21494,7 +21494,7 @@ async function discoverSources(ctx) {
       });
       continue;
     }
-    const change = /(^|\/)go\.mod$/.test(source.path) ? await changedGoMod(ctx, source.path) : { changedLines: /* @__PURE__ */ new Set(), status: "added" };
+    const change = await changedSource(ctx, source.path);
     files.push({
       path: source.path,
       current: source.content,
@@ -21508,7 +21508,7 @@ async function discoverSources(ctx) {
     files
   };
 }
-async function changedGoMod(ctx, path) {
+async function changedSource(ctx, path) {
   const base = ctx.change?.baseRef;
   if (base === void 0 || !await existsAtRevision(ctx.repoPath, base, path)) {
     return { changedLines: /* @__PURE__ */ new Set(), status: "added" };
