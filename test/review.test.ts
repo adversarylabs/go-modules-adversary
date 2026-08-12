@@ -110,6 +110,69 @@ replace example.com/dependency => example.com/dependency v1.1.0
   assert.equal(output.findings.some((finding) => finding.ruleId === "go-modules.same-module-replace"), true);
 });
 
+test("an unrelated Makefile edit does not surface a legacy checksum bypass", async () => {
+  const root = await gitRepository({
+    Makefile: `download:
+\tGOSUMDB=off go mod download
+`,
+  });
+  await writeFile(
+    join(root, "Makefile"),
+    `download:
+\tGOSUMDB=off go mod download
+
+# Keep generated files current.
+`,
+  );
+
+  const output = await changedReview(root, ["Makefile"]);
+  assert.equal(output.findings.some((finding) => finding.ruleId === "go-modules.checksum-database-off"), false);
+});
+
+test("a changed checksum bypass in an existing Makefile is reported", async () => {
+  const root = await gitRepository({
+    Makefile: `download:
+\tGOSUMDB=off go mod download
+`,
+  });
+  await writeFile(
+    join(root, "Makefile"),
+    `download:
+\tGOSUMDB=off go mod download
+\tGONOSUMDB=* go mod download
+`,
+  );
+
+  const output = await changedReview(root, ["Makefile"]);
+  const finding = output.findings.find((item) => item.ruleId === "go-modules.checksum-database-off");
+  assert.equal(finding?.evidence.length, 1);
+  assert.equal(finding?.evidence?.[0]?.location?.line, 3);
+});
+
+test("a checksum bypass in a newly added config file is fully eligible", async () => {
+  const root = await gitRepository({ "README.md": "# service\n" });
+  await writeFile(join(root, ".env"), "GOSUMDB=off\n");
+
+  const output = await changedReview(root, [".env"]);
+  assert.equal(output.findings.some((finding) => finding.ruleId === "go-modules.checksum-database-off"), true);
+});
+
+async function changedReview(root: string, changedFiles: string[]): Promise<ReviewResult> {
+  return createApp().run({
+    input: {
+      source: { path: root },
+      change: {
+        type: "diff",
+        base_ref: "HEAD",
+        head_ref: "WORKTREE",
+        scan_mode: "changed",
+        changed_files: changedFiles,
+      },
+    },
+    includeRawObservations: true,
+  });
+}
+
 async function isolatedFixture(fixture: string): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "go-domain-fixture-"));
   await cp(fixture, root, { recursive: true });
