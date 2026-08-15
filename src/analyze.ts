@@ -1,4 +1,4 @@
-import { domain, missingSumSignals } from "./domain.js";
+import { domain, missingSumSignals, tidyOrphanRequireSignals } from "./domain.js";
 import { parseGo } from "./parser.js";
 import { type Analysis, type Discovery, type PositiveSignal, type Signal, type SourceRevision } from "./types.js";
 
@@ -27,6 +27,12 @@ export async function analyzeDiscovery(discovery: Discovery): Promise<Analysis> 
 
   // Cross-file: go.mod requires modules but sibling go.sum is absent from discovery.
   for (const signal of missingSumSignals(discovery.files)) {
+    const file = discovery.files.find((item) => item.path === signal.path);
+    if (file === undefined) continue;
+    if (changed(file, signal.line, signal.endLine)) signals.push(signal);
+  }
+
+  for (const signal of tidyOrphanRequireSignals(discovery.files)) {
     const file = discovery.files.find((item) => item.path === signal.path);
     if (file === undefined) continue;
     if (changed(file, signal.line, signal.endLine)) signals.push(signal);

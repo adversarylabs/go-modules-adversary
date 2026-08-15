@@ -76,6 +76,16 @@ Regression entry: graded module fixtures under `test/`.
 | **Stays quiet when** | Local replacements, forks, version-specific replacements, or no matching require |
 | **Remediation** | Require the target version directly, or document the deliberate global override |
 
+### `go-modules.tidy-orphan-require`
+
+| | |
+| --- | --- |
+| **What** | A require is not imported by any Go file in the module |
+| **Why** | `go mod tidy` deletes pins used only by Hugo, Make, or other non-Go consumers |
+| **Looks for** | Versioned require with no same-module `.go` import of that module path |
+| **Stays quiet when** | A tools-pattern or other `.go` import retains the module; no `.go` files exist beside the `go.mod`; the require documents that tidy must not run |
+| **Remediation** | Add a `tools.go` blank import so tidy keeps the pin |
+
 ### `go-modules.exclude`
 
 | | |
