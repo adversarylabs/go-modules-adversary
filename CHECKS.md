@@ -76,6 +76,16 @@ Regression entry: graded module fixtures under `test/`.
 | **Stays quiet when** | Local replacements, forks, version-specific replacements, or no matching require |
 | **Remediation** | Require the target version directly, or document the deliberate global override |
 
+### `go-modules.tidy-orphan-require`
+
+| | |
+| --- | --- |
+| **What** | A `require` documented as serving a non-Go consumer has no retaining import in the same module and may be removed by `go mod tidy` |
+| **Why** | Non-Go consumers such as Hugo or Make can rely on a module pin that the Go toolchain does not necessarily retain |
+| **Looks for** | Explicit non-Go-consumer evidence beside the requirement plus no matching Go import; absence of a direct import alone is insufficient because transitive requirements are normal |
+| **Stays quiet when** | The requirement is an ordinary direct or indirect Go dependency; a Go file imports the module or a subpackage; no `.go` files exist beside the `go.mod`; or a nearby comment defines a separate tidy policy |
+| **Remediation** | Use a tools-pattern blank import when possible; otherwise document and enforce a separate non-Go dependency workflow |
+
 ### `go-modules.exclude`
 
 | | |

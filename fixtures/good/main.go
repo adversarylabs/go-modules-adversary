@@ -3,6 +3,8 @@ package good
 import (
 	"context"
 	"time"
+
+	_ "golang.org/x/sync/errgroup"
 )
 
 func waitForReady(parent context.Context, ready <-chan struct{}) error {
