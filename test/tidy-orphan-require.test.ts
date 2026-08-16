@@ -25,7 +25,7 @@ test("flags a Hugo theme require that no Go file imports", async () => {
 go 1.24
 
 require gopkg.in/yaml.v2 v2.4.0
-require github.com/google/docsy/theme v0.16.0 // indirect
+require github.com/google/docsy/theme v0.16.0 // Hugo theme; non-Go consumer
 `,
     "main.go": `package site
 
@@ -37,6 +37,29 @@ func load() { _ = yaml.Marshal }
   const finding = output.findings.find((item) => item.ruleId === ruleId);
   assert.ok(finding, JSON.stringify(output.findings, null, 2));
   assert.match(finding.evidence[0]!.message ?? "", /github.com\/google\/docsy\/theme/);
+});
+
+test("stays quiet for an ordinary transitive indirect requirement", async () => {
+  const output = await review({
+    "go.mod": `module example.com/site
+
+go 1.24
+
+require gopkg.in/yaml.v2 v2.4.0
+require golang.org/x/sys v0.35.0 // indirect
+`,
+    "main.go": `package site
+
+import "gopkg.in/yaml.v2"
+
+func load() { _ = yaml.Marshal }
+`,
+  });
+  assert.equal(
+    output.findings.some((item) => item.ruleId === ruleId),
+    false,
+    JSON.stringify(output.findings, null, 2),
+  );
 });
 
 test("stays quiet when tools.go blank-imports the required module", async () => {

@@ -80,11 +80,11 @@ Regression entry: graded module fixtures under `test/`.
 
 | | |
 | --- | --- |
-| **What** | A require is not imported by any Go file in the module |
-| **Why** | `go mod tidy` deletes pins used only by Hugo, Make, or other non-Go consumers |
-| **Looks for** | Versioned require with no same-module `.go` import of that module path |
-| **Stays quiet when** | A tools-pattern or other `.go` import retains the module; no `.go` files exist beside the `go.mod`; the require documents that tidy must not run |
-| **Remediation** | Add a `tools.go` blank import so tidy keeps the pin |
+| **What** | A `require` documented as serving a non-Go consumer has no retaining import in the same module and may be removed by `go mod tidy` |
+| **Why** | Non-Go consumers such as Hugo or Make can rely on a module pin that the Go toolchain does not necessarily retain |
+| **Looks for** | Explicit non-Go-consumer evidence beside the requirement plus no matching Go import; absence of a direct import alone is insufficient because transitive requirements are normal |
+| **Stays quiet when** | The requirement is an ordinary direct or indirect Go dependency; a Go file imports the module or a subpackage; no `.go` files exist beside the `go.mod`; or a nearby comment defines a separate tidy policy |
+| **Remediation** | Use a tools-pattern blank import when possible; otherwise document and enforce a separate non-Go dependency workflow |
 
 ### `go-modules.exclude`
 

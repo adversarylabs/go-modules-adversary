@@ -111,19 +111,19 @@ export const domain: DomainDefinition = {
     },
     {
       id: "go-modules.tidy-orphan-require",
-      title: "A require is not imported and go mod tidy will drop it",
-      concern: "go.mod pins unused by Go imports",
+      title: "A non-Go dependency is not retained by a Go import",
+      concern: "go.mod pins used only by non-Go consumers",
       category: "dependencies",
       severity: "medium",
-      confidence: "high",
+      confidence: "medium",
       summary: (count) =>
-        `${count} require${count === 1 ? "" : "s"} are not imported by any Go file in the module and will be removed by go mod tidy.`,
+        `${count} documented non-Go dependenc${count === 1 ? "y has" : "ies have"} no retaining Go import and may be removed by go mod tidy.`,
       whyItMatters:
-        "go mod tidy keeps only modules imported by .go files. A pin used solely by Hugo, Make, or another non-Go consumer disappears on the next tidy.",
+        "Go's module graph follows Go package imports. A pin documented as serving only Hugo, Make, or another non-Go consumer is not necessarily retained by tidy.",
       impact:
-        "The next tidy silently unpins a theme, generator, or other non-Go dependency and breaks a previously reproducible build.",
+        "A later tidy can silently unpin a theme, generator, or other non-Go dependency and break a previously reproducible build.",
       recommendation:
-        "Add a tools-pattern blank import (for example tools.go with //go:build tools) so tidy retains the require.",
+        "If the module exposes an importable Go package, add a tools-pattern blank import; otherwise document and enforce the repository's separate non-Go dependency workflow.",
     },
   ],
   noRiskSummary: "The reviewed module metadata resolves an immutable, reproducible dependency graph.",
@@ -145,7 +145,7 @@ export const domain: DomainDefinition = {
   },
 };
 
-/** Cross-file: go.mod requires that no same-module .go file imports. */
+/** Cross-file: documented non-Go requires that no same-module .go file imports. */
 export function tidyOrphanRequireSignals(files: SourceRevision[]): Signal[] {
   const mods = files.filter((file) => /(^|\/)go\.mod$/.test(file.path));
   const goFiles = files.filter((file) => file.path.endsWith(".go"));
@@ -164,18 +164,24 @@ export function tidyOrphanRequireSignals(files: SourceRevision[]): Signal[] {
 
     for (const requirement of versionedRequires(goMod.current)) {
       if (moduleIsImported(requirement.module, imported)) continue;
+      if (!requireDocumentsNonGoConsumer(goMod.current, requirement.line)) continue;
       if (requireDocumentsTidyException(goMod.current, requirement.line)) continue;
       signals.push({
         ruleId: "go-modules.tidy-orphan-require",
         path: goMod.path,
         line: requirement.line,
-        message: `${requirement.module} is required but no Go file in this module imports it; go mod tidy will drop the pin.`,
+        message: `${requirement.module} is documented as a non-Go dependency, but no Go file retains it; go mod tidy may drop the pin.`,
         snippet: requirement.snippet,
         data: { module: requirement.module, version: requirement.version },
       });
     }
   }
   return signals;
+}
+
+function requireDocumentsNonGoConsumer(source: string, line: number): boolean {
+  const text = requireContext(source, line).toLowerCase();
+  return /\b(?:non-go|hugo|theme|makefile|external tool|code generator|protoc)\b/.test(text);
 }
 
 function moduleDirectory(path: string): string {
@@ -214,11 +220,13 @@ function moduleIsImported(module: string, imported: Set<string>): boolean {
 }
 
 function requireDocumentsTidyException(source: string, line: number): boolean {
+  const text = requireContext(source, line).toLowerCase();
+  return /(?:do not|don't|must not|never)\s+(?:run\s+)?go mod tidy|hugo mod/.test(text);
+}
+
+function requireContext(source: string, line: number): string {
   const lines = source.split("\n");
-  const current = lines[line - 1] ?? "";
-  const previous = lines[line - 2] ?? "";
-  const text = `${previous}\n${current}`.toLowerCase();
-  return /go mod tidy|hugo mod|not by any go import/.test(text);
+  return `${lines[line - 2] ?? ""}\n${lines[line - 1] ?? ""}`;
 }
 
 /** Cross-file: go.mod with versioned requires but no sibling go.sum in discovery. */

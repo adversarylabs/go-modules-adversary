@@ -17195,15 +17195,15 @@ var domain = {
     },
     {
       id: "go-modules.tidy-orphan-require",
-      title: "A require is not imported and go mod tidy will drop it",
-      concern: "go.mod pins unused by Go imports",
+      title: "A non-Go dependency is not retained by a Go import",
+      concern: "go.mod pins used only by non-Go consumers",
       category: "dependencies",
       severity: "medium",
-      confidence: "high",
-      summary: (count) => `${count} require${count === 1 ? "" : "s"} are not imported by any Go file in the module and will be removed by go mod tidy.`,
-      whyItMatters: "go mod tidy keeps only modules imported by .go files. A pin used solely by Hugo, Make, or another non-Go consumer disappears on the next tidy.",
-      impact: "The next tidy silently unpins a theme, generator, or other non-Go dependency and breaks a previously reproducible build.",
-      recommendation: "Add a tools-pattern blank import (for example tools.go with //go:build tools) so tidy retains the require."
+      confidence: "medium",
+      summary: (count) => `${count} documented non-Go dependenc${count === 1 ? "y has" : "ies have"} no retaining Go import and may be removed by go mod tidy.`,
+      whyItMatters: "Go's module graph follows Go package imports. A pin documented as serving only Hugo, Make, or another non-Go consumer is not necessarily retained by tidy.",
+      impact: "A later tidy can silently unpin a theme, generator, or other non-Go dependency and break a previously reproducible build.",
+      recommendation: "If the module exposes an importable Go package, add a tools-pattern blank import; otherwise document and enforce the repository's separate non-Go dependency workflow."
     }
   ],
   noRiskSummary: "The reviewed module metadata resolves an immutable, reproducible dependency graph.",
@@ -17239,18 +17239,23 @@ function tidyOrphanRequireSignals(files) {
     }
     for (const requirement of versionedRequires(goMod.current)) {
       if (moduleIsImported(requirement.module, imported)) continue;
+      if (!requireDocumentsNonGoConsumer(goMod.current, requirement.line)) continue;
       if (requireDocumentsTidyException(goMod.current, requirement.line)) continue;
       signals.push({
         ruleId: "go-modules.tidy-orphan-require",
         path: goMod.path,
         line: requirement.line,
-        message: `${requirement.module} is required but no Go file in this module imports it; go mod tidy will drop the pin.`,
+        message: `${requirement.module} is documented as a non-Go dependency, but no Go file retains it; go mod tidy may drop the pin.`,
         snippet: requirement.snippet,
         data: { module: requirement.module, version: requirement.version }
       });
     }
   }
   return signals;
+}
+function requireDocumentsNonGoConsumer(source, line) {
+  const text = requireContext(source, line).toLowerCase();
+  return /\b(?:non-go|hugo|theme|makefile|external tool|code generator|protoc)\b/.test(text);
 }
 function moduleDirectory(path) {
   if (path === "go.mod") return ".";
@@ -17284,12 +17289,13 @@ function moduleIsImported(module2, imported) {
   return false;
 }
 function requireDocumentsTidyException(source, line) {
+  const text = requireContext(source, line).toLowerCase();
+  return /(?:do not|don't|must not|never)\s+(?:run\s+)?go mod tidy|hugo mod/.test(text);
+}
+function requireContext(source, line) {
   const lines = source.split("\n");
-  const current = lines[line - 1] ?? "";
-  const previous = lines[line - 2] ?? "";
-  const text = `${previous}
-${current}`.toLowerCase();
-  return /go mod tidy|hugo mod|not by any go import/.test(text);
+  return `${lines[line - 2] ?? ""}
+${lines[line - 1] ?? ""}`;
 }
 function missingSumSignals(files) {
   const paths = new Set(files.map((file) => file.path));
