@@ -1,5 +1,5 @@
 name: adversarylabs/go/modules
-version: 0.0.15
+version: 0.0.16
 description: Reviews Go module metadata for reproducibility, upgrade safety, and maintainable dependency ownership.
 
 triggers:
